@@ -4,14 +4,14 @@ This repository contains the ARC-AGI-2 task data (ARC-AGI-1 can be found [here](
 
 *"ARC can be seen as a general artificial intelligence benchmark, as a program synthesis benchmark, or as a psychometric intelligence test. It is targeted at both humans and artificially intelligent systems that aim at emulating a human-like form of general fluid intelligence."*
 
-A foundational description of the dataset, its goals, and its underlying logic, can be found in: [On the Measure of Intelligence](https://arxiv.org/abs/1911.01547) and the [ARC-AGI-2 Presentation](https://docs.google.com/presentation/d/1hQrGh5YI6MK3PalQYSQs4CQERrYBQZue8PBLjjHIMgI/edit?usp=sharing)
+A foundational description of the dataset, its goals, and its underlying logic, can be found in: [On the Measure of Intelligence](https://arxiv.org/abs/1911.01547), the [ARC-AGI-2 Presentation](https://docs.google.com/presentation/d/1hQrGh5YI6MK3PalQYSQs4CQERrYBQZue8PBLjjHIMgI/edit?usp=sharing) and [ARC-AGI-2 Technical Report](http://arcprize.org/blog/arc-agi-2-technical-report)
 
 ## Dataset composition
 
-ARC-AGI-2 contains 1,000 training tasks and 120 public evaluation tasks.
+ARC-AGI-2 contains 1,000 public training tasks and 120 public evaluation tasks.
 
 The training tasks are intended to demonstrate the task format and the Core Knowledge priors used by ARC-AGI. They can be used for training AI models.
-The public evaluation tasks are intended for testing AI models that have never seen these tasks before. Average human performance on these tasks in our test sample was 60%.
+The public evaluation tasks are intended for testing AI models that have never seen these tasks before. Average human performance on these tasks in our test sample was 66%.
 
 ARC-AGI-2 also features two private test sets not included in the repo:
 
@@ -48,7 +48,7 @@ When looking at a task, a test-taker has access to inputs & outputs of the demon
 
 ## Usage of the testing interface
 
-You can view tasks on [ARCPrize.org/play](https://arcprize.org/play) or clone the [ARC-AGI testing interface](https://github.com/fchollet/ARC-AGI/tree/master/apps) located at `apps/testing_interface.html`. Open it in a web browser (Chrome recommended). It will prompt you to select a task JSON file.
+You can view tasks on [ARCPrize.org/play](https://arcprize.org/play) or clone the [ARC-AGI-1 testing interface](https://github.com/fchollet/ARC-AGI/tree/master/apps). Open it in a web browser (Chrome recommended). It will prompt you to select a task JSON file.
 
 After loading a task, you will enter the test space, which looks like this:
 
