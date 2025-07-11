@@ -8,6 +8,7 @@ from torch.optim import Adam
 from torch.utils.data import DataLoader
 
 from data_loader import collate_fn
+from data_loader import ARCDataset
 from models import ARCModel, masked_cross_entropy
 from task_embeddings import TaskEmbeddingModule
 
@@ -53,3 +54,34 @@ def train(
             total_loss += loss.item()
         avg = total_loss / len(loader)
         print(f"Epoch {epoch+1}/{epochs} - loss: {avg:.4f}")
+
+
+def main() -> None:
+    """Entry point for command line training."""
+    import argparse
+    from pathlib import Path
+
+    parser = argparse.ArgumentParser(description="Train ARC model")
+    parser.add_argument("--root", default=".", help="Repository root containing data folder")
+    parser.add_argument("--epochs", type=int, default=10)
+    parser.add_argument("--batch-size", type=int, default=16)
+    parser.add_argument("--device", default="cpu")
+    args = parser.parse_args()
+
+    dataset = ARCDataset(args.root, split="training", mode="train")
+    task_ids = [p.stem for p in dataset.task_files]
+    embeddings = TaskEmbeddingModule(task_ids)
+    model = ARCModel()
+    device = torch.device(args.device)
+    train(
+        model,
+        embeddings,
+        dataset,
+        epochs=args.epochs,
+        batch_size=args.batch_size,
+        device=device,
+    )
+
+
+if __name__ == "__main__":  # pragma: no cover - CLI entry point
+    main()
