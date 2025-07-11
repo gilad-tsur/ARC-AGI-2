@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from typing import Iterable, Optional
+from pathlib import Path
 
 import torch
 from torch.optim import Adam
@@ -11,6 +12,7 @@ from data_loader import collate_fn
 from data_loader import ARCDataset
 from models import ARCModel, masked_cross_entropy
 from task_embeddings import TaskEmbeddingModule
+from evaluation import score_split
 
 
 def train(
@@ -25,6 +27,8 @@ def train(
     emb_lr: float = 1e-2,
     device: torch.device | None = None,
     save_path: Optional[str] = None,
+    eval_root: Optional[str] = None,
+    eval_interval: int = 10,
 ) -> None:
     """Train ``model`` and ``task_embeddings`` jointly."""
     device = device or torch.device("cpu")
@@ -73,9 +77,15 @@ def train(
                     loss_mask = torch.nn.functional.binary_cross_entropy(pred_mask, out_masks.float())
                     val_loss += (loss_grid + loss_mask).item()
             val_avg = val_loss / len(val_loader)
-            print(f"Epoch {epoch+1}/{epochs} - loss: {avg:.4f} - val_loss: {val_avg:.4f}")
+            msg = f"Epoch {epoch+1}/{epochs} - loss: {avg:.4f} - val_loss: {val_avg:.4f}"
         else:
-            print(f"Epoch {epoch+1}/{epochs} - loss: {avg:.4f}")
+            msg = f"Epoch {epoch+1}/{epochs} - loss: {avg:.4f}"
+
+        if eval_root is not None and (epoch + 1) % eval_interval == 0:
+            eval_score = score_split(model, task_embeddings, eval_root, device=device)
+            msg += f" - eval_score: {eval_score:.4f}"
+
+        print(msg)
 
     if save_path is not None:
         torch.save(
@@ -102,7 +112,9 @@ def main() -> None:
 
     dataset = ARCDataset(args.root, split="training", mode="train")
     val_dataset = ARCDataset(args.root, split="training", mode="test")
-    task_ids = [p.stem for p in dataset.task_files]
+    train_ids = [p.stem for p in dataset.task_files]
+    eval_ids = [p.stem for p in (Path(args.root) / "data" / "evaluation").glob("*.json")]
+    task_ids = sorted(set(train_ids + eval_ids))
     embeddings = TaskEmbeddingModule(task_ids)
     model = ARCModel()
     device = torch.device(args.device)
@@ -115,6 +127,8 @@ def main() -> None:
         batch_size=args.batch_size,
         device=device,
         save_path=args.save_to,
+        eval_root=args.root,
+        eval_interval=10,
     )
 
 
