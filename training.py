@@ -1,7 +1,7 @@
 """Training utilities."""
 from __future__ import annotations
 
-from typing import Iterable
+from typing import Iterable, Optional
 
 import torch
 from torch.optim import Adam
@@ -17,12 +17,14 @@ def train(
     model: ARCModel,
     task_embeddings: TaskEmbeddingModule,
     dataset: torch.utils.data.Dataset,
+    val_dataset: Optional[torch.utils.data.Dataset] = None,
     *,
     epochs: int = 10,
     batch_size: int = 16,
     model_lr: float = 1e-3,
     emb_lr: float = 1e-2,
     device: torch.device | None = None,
+    save_path: Optional[str] = None,
 ) -> None:
     """Train ``model`` and ``task_embeddings`` jointly."""
     device = device or torch.device("cpu")
@@ -30,6 +32,9 @@ def train(
     task_embeddings.to(device)
 
     loader = DataLoader(dataset, batch_size=batch_size, shuffle=True, collate_fn=collate_fn)
+    val_loader = None
+    if val_dataset is not None:
+        val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, collate_fn=collate_fn)
     opt_model = Adam(model.parameters(), lr=model_lr)
     opt_emb = Adam(task_embeddings.parameters(), lr=emb_lr)
 
@@ -53,22 +58,50 @@ def train(
             opt_emb.step()
             total_loss += loss.item()
         avg = total_loss / len(loader)
-        print(f"Epoch {epoch+1}/{epochs} - loss: {avg:.4f}")
+        if val_loader is not None:
+            model.eval()
+            val_loss = 0.0
+            with torch.no_grad():
+                for inputs, outputs, in_masks, out_masks, task_ids in val_loader:
+                    inputs = inputs.to(device)
+                    outputs = outputs.to(device)
+                    in_masks = in_masks.to(device)
+                    out_masks = out_masks.to(device)
+                    task_emb = task_embeddings(task_ids)
+                    logits, pred_mask = model(inputs, task_emb, in_masks)
+                    loss_grid = masked_cross_entropy(logits, outputs, out_masks)
+                    loss_mask = torch.nn.functional.binary_cross_entropy(pred_mask, out_masks.float())
+                    val_loss += (loss_grid + loss_mask).item()
+            val_avg = val_loss / len(val_loader)
+            print(f"Epoch {epoch+1}/{epochs} - loss: {avg:.4f} - val_loss: {val_avg:.4f}")
+        else:
+            print(f"Epoch {epoch+1}/{epochs} - loss: {avg:.4f}")
+
+    if save_path is not None:
+        torch.save(
+            {
+                "model": model.state_dict(),
+                "embeddings": task_embeddings.state_dict(),
+                "task_ids": task_embeddings.task_to_idx,
+            },
+            save_path,
+        )
 
 
 def main() -> None:
     """Entry point for command line training."""
     import argparse
-    from pathlib import Path
 
     parser = argparse.ArgumentParser(description="Train ARC model")
     parser.add_argument("--root", default=".", help="Repository root containing data folder")
     parser.add_argument("--epochs", type=int, default=10)
     parser.add_argument("--batch-size", type=int, default=16)
     parser.add_argument("--device", default="cpu")
+    parser.add_argument("--save-to", default="arc_model.pt", help="Path to save trained model")
     args = parser.parse_args()
 
     dataset = ARCDataset(args.root, split="training", mode="train")
+    val_dataset = ARCDataset(args.root, split="training", mode="test")
     task_ids = [p.stem for p in dataset.task_files]
     embeddings = TaskEmbeddingModule(task_ids)
     model = ARCModel()
@@ -77,9 +110,11 @@ def main() -> None:
         model,
         embeddings,
         dataset,
+        val_dataset=val_dataset,
         epochs=args.epochs,
         batch_size=args.batch_size,
         device=device,
+        save_path=args.save_to,
     )
 
 
