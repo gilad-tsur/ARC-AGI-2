@@ -112,3 +112,41 @@ def evaluate_split(
         for k, v in metrics.items():
             agg[k] += v
     return {k: v / len(task_files) for k, v in agg.items()}
+
+
+def score_split(
+    model: ARCModel,
+    embeddings: TaskEmbeddingModule,
+    root: str,
+    *,
+    split: str = "evaluation",
+    adapt_steps: int = 50,
+    adapt_lr: float = 1e-2,
+    device: torch.device | None = None,
+) -> float:
+    """Return exact prediction accuracy on ``split``."""
+    device = device or torch.device("cpu")
+    data_dir = Path(root) / "data" / split
+    task_files = sorted(data_dir.glob("*.json"))
+    correct = 0
+    total = 0
+    for task in task_files:
+        preds = predict_task(
+            model,
+            embeddings,
+            task,
+            adapt_steps=adapt_steps,
+            adapt_lr=adapt_lr,
+            device=device,
+        )
+        with open(task) as f:
+            data = json.load(f)
+        targets = [pair["output"] for pair in data["test"]]
+        for p, t in zip(preds, targets):
+            total += 1
+            if p == t:
+                correct += 1
+    if total == 0:
+        return 0.0
+    return correct / total
+
